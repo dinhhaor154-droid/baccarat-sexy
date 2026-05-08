@@ -55,6 +55,9 @@ GET /road/1008
 GET /latest
 GET /latest?table_id=1008
 GET /events?limit=100
+GET /aibcr/raw
+GET /aibcr/roads
+GET /aibcr/roads?game_code=ae&table_id=1008
 ```
 
 Railway uses `Procfile` / `railway.json` and starts the API with:
@@ -71,6 +74,14 @@ BAC_TABLE=1008
 ```
 
 Set `RUN_COLLECTOR=0` only if you want Railway to run the API without opening the collector.
+
+Optional AIBCR environment variables, only needed if the endpoint requires an active session:
+
+```text
+AIBCR_CSRF_TOKEN=...
+AIBCR_XSRF_TOKEN=...
+AIBCR_LARAVEL_SESSION=...
+```
 
 ## Current Mapping
 

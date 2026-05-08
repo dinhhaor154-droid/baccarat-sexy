@@ -7,6 +7,8 @@ from typing import Any
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 
+from aibcr_client import build_roads, fetch_results
+
 
 OUT_DIR = Path(os.environ.get("BAC_OUT_DIR", "bac_capture"))
 EVENTS_FILE = OUT_DIR / "events.jsonl"
@@ -137,3 +139,26 @@ async def latest(table_id: str | None = Query(default=None)) -> dict[str, Any]:
 @app.get("/events")
 async def events(limit: int = Query(default=100, ge=1, le=1000)) -> list[dict[str, Any]]:
     return read_events(limit)
+
+
+@app.get("/aibcr/raw")
+async def aibcr_raw(table: str = Query(default="all")) -> dict[str, Any]:
+    try:
+        return fetch_results(table=table)
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+@app.get("/aibcr/roads")
+async def aibcr_roads(
+    game_code: str | None = Query(default=None),
+    table_id: str | None = Query(default=None),
+    table: str = Query(default="all"),
+) -> dict[str, Any]:
+    try:
+        return {
+            "code": 200,
+            "data": build_roads(game_code=game_code, table_id=table_id, table=table),
+        }
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}

@@ -10,3 +10,4 @@ bac_capture/
 
 .env
 *.log
+bcr.py

@@ -1,10 +1,12 @@
 import argparse
 import asyncio
+import base64
 import json
 import os
 import time
 from pathlib import Path
 
+import requests
 from playwright.async_api import async_playwright
 
 
@@ -13,6 +15,8 @@ OUT_DIR = Path("bac_capture")
 PROFILE_DIR = Path("bac_profile")
 EVENTS_FILE = OUT_DIR / "events.jsonl"
 ROAD_FILE = OUT_DIR / "road_store.json"
+INGEST_URL = os.environ.get("BAC_API_URL", "").strip()
+INGEST_TOKEN = os.environ.get("BAC_INGEST_TOKEN", "").strip()
 
 
 HOOK_JS = r"""
@@ -102,6 +106,52 @@ def save_road_store(store: dict) -> None:
         json.dumps(store, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
+
+
+def push_ingest(record: dict) -> None:
+    if not INGEST_URL:
+        return
+
+    headers = {"content-type": "application/json"}
+    if INGEST_TOKEN:
+        headers["x-bac-token"] = INGEST_TOKEN
+
+    try:
+        requests.post(INGEST_URL, json=record, headers=headers, timeout=10)
+    except Exception as exc:
+        print(f"INGEST push failed: {exc}")
+
+
+def load_storage_state_from_env() -> dict | None:
+    raw = os.environ.get("BAC_STORAGE_STATE_JSON", "").strip()
+    raw_b64 = os.environ.get("BAC_STORAGE_STATE_B64", "").strip()
+
+    if raw_b64:
+        raw = base64.b64decode(raw_b64).decode("utf-8")
+
+    if not raw:
+        return None
+
+    try:
+        return json.loads(raw)
+    except Exception as exc:
+        print(f"Could not parse BAC storage state: {exc}")
+        return None
+
+
+async def apply_storage_state(context, state: dict | None) -> None:
+    if not state:
+        return
+
+    cookies = state.get("cookies") if isinstance(state, dict) else None
+    if not cookies:
+        return
+
+    try:
+        await context.add_cookies(cookies)
+        print(f"Loaded {len(cookies)} cookies from BAC storage state.")
+    except Exception as exc:
+        print(f"Could not apply BAC storage cookies: {exc}")
 
 
 async def first_visible(locator):
@@ -325,6 +375,8 @@ async def main() -> None:
             with EVENTS_FILE.open("a", encoding="utf-8") as f:
                 f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
+            await asyncio.to_thread(push_ingest, record)
+
             if record.get("kind") == "road":
                 road = record.get("roadInfo") or {}
                 table_id = str(road.get("tableID") or "unknown")
@@ -355,6 +407,7 @@ async def main() -> None:
             headless=args.headless,
             viewport={"width": 1365, "height": 900},
         )
+        await apply_storage_state(context, load_storage_state_from_env())
         page = context.pages[0] if context.pages else await context.new_page()
 
         await page.expose_binding("bacEmit", bac_emit)

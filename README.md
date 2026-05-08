@@ -55,6 +55,7 @@ GET /road/1008
 GET /latest
 GET /latest?table_id=1008
 GET /events?limit=100
+POST /ingest
 GET /aibcr/raw
 GET /aibcr/roads
 GET /aibcr/roads?game_code=ae&table_id=1008
@@ -74,6 +75,30 @@ BAC_TABLE=1008
 ```
 
 Set `RUN_COLLECTOR=0` only if you want Railway to run the API without opening the collector.
+
+## Run Collector On Railway With A Logged-In Session
+
+Railway cannot solve captcha or unusual-login checks by itself. Export the already
+verified local browser session and add it to Railway:
+
+```powershell
+python export_bac_session.py
+```
+
+Copy the printed `BAC_STORAGE_STATE_B64=...` value into Railway Variables.
+The Railway collector loads those cookies before opening F168.
+
+## Push Local Collector To Railway
+
+Railway may not be able to log in when the site asks for captcha or flags the cloud IP.
+Use the already logged-in local browser profile and push captured data to Railway:
+
+```powershell
+$env:BAC_API_URL="https://web-production-c3578.up.railway.app/ingest"
+python -u bac_auto_capture.py --table 1008
+```
+
+If you set `BAC_INGEST_TOKEN` on Railway, set the same value locally before running.
 
 Optional AIBCR environment variables, only needed if the endpoint requires an active session:
 

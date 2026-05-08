@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from aibcr_client import build_roads, fetch_results
@@ -65,6 +65,19 @@ def latest_result(table_id: str | None = None) -> dict[str, Any] | None:
             continue
         return event
     return None
+
+
+def append_event(record: dict[str, Any]) -> None:
+    OUT_DIR.mkdir(exist_ok=True)
+    with EVENTS_FILE.open("a", encoding="utf-8") as file:
+        file.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+    if record.get("kind") == "road":
+        road_info = record.get("roadInfo") or {}
+        table_id = str(road_info.get("tableID") or "unknown")
+        store = read_json(ROAD_FILE, {})
+        store[table_id] = road_info
+        ROAD_FILE.write_text(json.dumps(store, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 @app.on_event("startup")
@@ -139,6 +152,25 @@ async def latest(table_id: str | None = Query(default=None)) -> dict[str, Any]:
 @app.get("/events")
 async def events(limit: int = Query(default=100, ge=1, le=1000)) -> list[dict[str, Any]]:
     return read_events(limit)
+
+
+@app.post("/ingest")
+async def ingest(request: Request) -> dict[str, Any]:
+    token = os.environ.get("BAC_INGEST_TOKEN", "")
+    if token and request.headers.get("x-bac-token") != token:
+        return {"ok": False, "error": "unauthorized"}
+
+    payload = await request.json()
+    records = payload if isinstance(payload, list) else [payload]
+
+    saved = 0
+    for item in records:
+        if not isinstance(item, dict):
+            continue
+        append_event(item)
+        saved += 1
+
+    return {"ok": True, "saved": saved}
 
 
 @app.get("/aibcr/raw")

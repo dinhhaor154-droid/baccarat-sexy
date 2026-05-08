@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Local browser profile and captured runtime data may contain cookies,
+# websocket tokens, and session-specific output.
+bac_profile/
+bac_capture/
+
+.env
+*.log

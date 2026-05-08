@@ -63,14 +63,14 @@ Railway uses `Procfile` / `railway.json` and starts the API with:
 uvicorn api_server:app --host 0.0.0.0 --port $PORT
 ```
 
-To also start the Playwright collector inside Railway, set:
+By default Railway also starts the Playwright collector. The defaults are:
 
 ```text
 RUN_COLLECTOR=1
 BAC_TABLE=1008
 ```
 
-Without `RUN_COLLECTOR=1`, Railway runs the API only and serves whatever data exists in `bac_capture/`.
+Set `RUN_COLLECTOR=0` only if you want Railway to run the API without opening the collector.
 
 ## Current Mapping
 

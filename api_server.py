@@ -70,7 +70,7 @@ async def maybe_start_collector() -> None:
     global collector_process
     OUT_DIR.mkdir(exist_ok=True)
 
-    if os.environ.get("RUN_COLLECTOR") != "1":
+    if os.environ.get("RUN_COLLECTOR", "1") != "1":
         return
 
     table = os.environ.get("BAC_TABLE", "1008")

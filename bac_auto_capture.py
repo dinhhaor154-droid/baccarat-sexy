@@ -199,6 +199,83 @@ async def try_auto_login(page, username: str | None, password: str | None) -> bo
 
 
 async def try_enter_table(page, table_text: str) -> bool:
+    table_name = "Baccarat C08" if table_text == "1008" else str(table_text)
+
+    async def save_debug(name: str) -> None:
+        try:
+            await page.screenshot(path=str(OUT_DIR / name), full_page=False)
+        except Exception:
+            pass
+
+    # Clear the birthday/promo dialog. Coordinates are more reliable here than
+    # text because the page is often rendered with mixed encodings.
+    await page.mouse.click(310, 101)
+    await page.wait_for_timeout(1200)
+
+    # Home page card position for CASINO SEXY in a 1365x900 viewport.
+    await page.mouse.click(613, 430)
+    print("Clicked CASINO SEXY/home casino area.")
+    await page.wait_for_timeout(6000)
+    await save_debug("after_casino_click.png")
+
+    # If we are on the provider game list, search the exact target table.
+    try:
+        await page.mouse.click(575, 91)
+        await page.keyboard.press("Control+A")
+        await page.keyboard.type("C08" if table_text == "1008" else table_name)
+        await page.wait_for_timeout(2500)
+        await save_debug("after_table_search.png")
+    except Exception:
+        pass
+
+    for frame in page.frames:
+        try:
+            target = frame.get_by_text(table_name, exact=True).first
+            if await target.count() and await target.is_visible(timeout=800):
+                await target.click(timeout=3000)
+                print(f"Clicked table candidate: {table_name}")
+                await page.wait_for_timeout(4000)
+                if any("singleBacTable.jsp" in frame.url for frame in page.frames):
+                    await save_debug("after_table_click.png")
+                    return True
+        except Exception:
+            pass
+
+    # Fallback for the filtered C08 result card.
+    await page.mouse.click(615, 216)
+    await page.wait_for_timeout(500)
+    await page.mouse.click(615, 216)
+    print(f"Clicked table coordinate fallback: {table_name}")
+    await page.wait_for_timeout(12000)
+    await save_debug("after_table_click.png")
+
+    if any("singleBacTable.jsp" in frame.url for frame in page.frames):
+        print(f"Entered table view for {table_name}.")
+        return True
+
+    # Clear common post-login promotional dialogs if they appear.
+    for label in ["Hủy Bỏ", "Đóng", "Xác Nhận"]:
+        try:
+            btn = page.get_by_text(label, exact=True).first
+            if await btn.count() and await btn.is_visible(timeout=500):
+                await btn.click(timeout=1000)
+                await page.wait_for_timeout(1000)
+                break
+        except Exception:
+            pass
+
+    # Enter the live casino provider first; table cards are loaded after this.
+    for label in ["CASINO SEXY", "SEXY", "Casino Sexy"]:
+        try:
+            target = page.get_by_text(label, exact=True).first
+            if await target.count() and await target.is_visible(timeout=500):
+                await target.click(timeout=2000)
+                print(f"Clicked game/provider candidate: {label}")
+                await page.wait_for_timeout(10000)
+                break
+        except Exception:
+            pass
+
     candidates = [
         table_text,
         f"C{int(table_text):02d}" if table_text.isdigit() and int(table_text) < 100 else table_text,

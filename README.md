@@ -38,6 +38,40 @@ python bac_auto_capture.py
 
 Note: captcha/slider verification must be completed manually in the browser when the site requires it. The collector does not bypass anti-bot checks.
 
+## API Server
+
+Run locally:
+
+```powershell
+uvicorn api_server:app --host 0.0.0.0 --port 8000
+```
+
+Endpoints:
+
+```text
+GET /health
+GET /road
+GET /road/1008
+GET /latest
+GET /latest?table_id=1008
+GET /events?limit=100
+```
+
+Railway uses `Procfile` / `railway.json` and starts the API with:
+
+```bash
+uvicorn api_server:app --host 0.0.0.0 --port $PORT
+```
+
+To also start the Playwright collector inside Railway, set:
+
+```text
+RUN_COLLECTOR=1
+BAC_TABLE=1008
+```
+
+Without `RUN_COLLECTOR=1`, Railway runs the API only and serves whatever data exists in `bac_capture/`.
+
 ## Current Mapping
 
 ```text
